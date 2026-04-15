@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Gastos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+</head>
+
+<body class="bg-gray-900 text-white p-6">
+
+<div class="max-w-2xl mx-auto bg-gray-800 p-6 rounded-2xl shadow-lg">
+
+  <h1 class="text-2xl font-bold mb-4">💰 Controle de Gastos</h1>
+
+  <!-- LOGIN -->
+  <div class="mb-4 text-center">
+    <button onclick="login()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
+      Login com Google
+    </button>
+
+    <button onclick="logout()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded ml-2">
+      Sair
+    </button>
+
+    <p id="user" class="text-sm mt-2"></p>
+  </div>
+
+  <!-- APP -->
+  <div id="app" style="display:none;">
+
+    <div class="mb-4">
+      <input id="desc" type="text" placeholder="Descrição"
+        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+
+      <select id="category"
+        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+        <option value="Alimentação">🍔 Alimentação</option>
+        <option value="Transporte">🚗 Transporte</option>
+        <option value="Contas">🏠 Contas</option>
+        <option value="Lazer">🎮 Lazer</option>
+        <option value="Outros">📦 Outros</option>
+      </select>
+
+      <input id="value" type="number" placeholder="Valor"
+        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+
+      <button onclick="addTransaction()"
+        class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full">
+        Adicionar
+      </button>
+    </div>
+
+    <!-- DÍVIDA -->
+    <div class="mb-4">
+      <input id="debt" type="number" placeholder="Total de dívidas"
+        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+
+      <button onclick="setDebt()"
+        class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded w-full">
+        Definir Dívida
+      </button>
+    </div>
+
+    <!-- RESUMO -->
+    <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+      <div class="bg-green-900 p-3 rounded">
+        <p>Entradas</p>
+        <strong>R$ <span id="income">0</span></strong>
+      </div>
+
+      <div class="bg-red-900 p-3 rounded">
+        <p>Gastos</p>
+        <strong>R$ <span id="expenses">0</span></strong>
+      </div>
+
+      <div class="bg-blue-900 p-3 rounded">
+        <p>Saldo</p>
+        <strong>R$ <span id="balance">0</span></strong>
+      </div>
+
+      <div class="bg-yellow-700 text-black p-3 rounded">
+        <p>Dívida restante</p>
+        <strong>R$ <span id="remaining">0</span></strong>
+      </div>
+    </div>
+
+    <ul id="list" class="space-y-2"></ul>
+  </div>
+</div>
+
+<script>
+
+// 🔥 FIREBASE CONFIG
+const firebaseConfig = {
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  projectId: "SEU_PROJETO",
+  storageBucket: "SEU_PROJETO.appspot.com",
+  messagingSenderId: "SEU_ID",
+  appId: "SEU_APP_ID"
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let userId = null;
+let transactions = [];
+let debt = 0;
+
+// 🔐 LOGIN (FUNCIONA NO VERCEL)
+function login() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithRedirect(provider);
+}
+
+function logout() {
+  auth.signOut();
+}
+
+// 👤 USER STATE
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    userId = user.uid;
+    document.getElementById('user').innerText = user.email;
+    document.getElementById('app').style.display = 'block';
+    await loadData();
+  } else {
+    userId = null;
+    document.getElementById('user').innerText = '';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+// ☁️ LOAD DATA
+async function loadData() {
+  const doc = await db.collection('users').doc(userId).get();
+  if (doc.exists) {
+    const data = doc.data();
+    transactions = data.transactions || [];
+    debt = data.debt || 0;
+  }
+  updateUI();
+}
+
+// 💾 SAVE DATA
+async function saveData() {
+  if (!userId) return;
+
+  await db.collection('users').doc(userId).set({
+    transactions,
+    debt
+  });
+}
+
+// 📊 UI
+function updateUI() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+
+  let total = 0;
+  let income = 0;
+  let expenses = 0;
+
+  transactions.forEach((t, i) => {
+    total += t.value;
+
+    if (t.value > 0) income += t.value;
+    else expenses += t.value;
+
+    const li = document.createElement('li');
+    li.className = 'bg-gray-700 p-2 rounded flex justify-between';
+
+    li.innerHTML = `
+      <span>${t.desc} (${t.category})</span>
+      <span>R$ ${t.value.toFixed(2)}</span>
+      <button onclick="removeTransaction(${i})" class="text-red-400">X</button>
+    `;
+
+    list.appendChild(li);
+  });
+
+  document.getElementById('income').innerText = income.toFixed(2);
+  document.getElementById('expenses').innerText = Math.abs(expenses).toFixed(2);
+  document.getElementById('balance').innerText = total.toFixed(2);
+  document.getElementById('remaining').innerText = Math.max(debt - total, 0).toFixed(2);
+}
+
+// ➕ ADD
+function addTransaction() {
+  const desc = document.getElementById('desc').value.trim();
+  const value = parseFloat(document.getElementById('value').value);
+  const category = document.getElementById('category').value;
+
+  if (!desc || isNaN(value)) return alert("Preencha corretamente");
+
+  transactions.push({ desc, value, category });
+
+  document.getElementById('desc').value = '';
+  document.getElementById('value').value = '';
+
+  updateUI();
+  saveData();
+}
+
+// ❌ REMOVE
+function removeTransaction(i) {
+  transactions.splice(i, 1);
+  updateUI();
+  saveData();
+}
+
+// 💸 DEBT
+function setDebt() {
+  debt = parseFloat(document.getElementById('debt').value) || 0;
+  updateUI();
+  saveData();
+}
+
+</script>
+
+</body>
+</html>

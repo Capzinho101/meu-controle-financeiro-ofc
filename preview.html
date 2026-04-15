@@ -19,38 +19,43 @@
 
   <!-- LOGIN -->
   <div class="mb-4 text-center">
-    <button onclick="login()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
-      Login com Google
-    </button>
-
-    <button onclick="logout()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded ml-2">
-      Sair
-    </button>
-
+    <button onclick="login()" class="bg-green-600 px-4 py-2 rounded">Login Google</button>
+    <button onclick="logout()" class="bg-gray-600 px-4 py-2 rounded ml-2">Sair</button>
     <p id="user" class="text-sm mt-2"></p>
   </div>
 
-  <!-- APP -->
   <div id="app" style="display:none;">
 
+    <!-- CICLO -->
+    <div class="mb-4">
+      <input id="cycle" type="number" placeholder="Dia de início do mês (ex: 1, 5, 10)"
+        class="bg-gray-700 p-2 w-full rounded text-white">
+
+      <button onclick="setCycle()"
+        class="bg-purple-600 px-4 py-2 rounded w-full mt-2">
+        Definir ciclo
+      </button>
+    </div>
+
+    <!-- TRANSAÇÃO -->
     <div class="mb-4">
       <input id="desc" type="text" placeholder="Descrição"
         class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
 
       <select id="category"
         class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
-        <option value="Alimentação">🍔 Alimentação</option>
-        <option value="Transporte">🚗 Transporte</option>
-        <option value="Contas">🏠 Contas</option>
-        <option value="Lazer">🎮 Lazer</option>
-        <option value="Outros">📦 Outros</option>
+        <option>Alimentação</option>
+        <option>Transporte</option>
+        <option>Contas</option>
+        <option>Lazer</option>
+        <option>Outros</option>
       </select>
 
       <input id="value" type="number" placeholder="Valor"
         class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
 
       <button onclick="addTransaction()"
-        class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded w-full">
+        class="bg-blue-600 px-4 py-2 rounded w-full">
         Adicionar
       </button>
     </div>
@@ -61,7 +66,7 @@
         class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
 
       <button onclick="setDebt()"
-        class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded w-full">
+        class="bg-red-600 px-4 py-2 rounded w-full">
         Definir Dívida
       </button>
     </div>
@@ -90,31 +95,33 @@
     </div>
 
     <ul id="list" class="space-y-2"></ul>
+
   </div>
 </div>
 
 <script>
-
-// 🔥 FIREBASE CONFIG
+// ================= FIREBASE =================
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_PROJETO.firebaseapp.com",
-  projectId: "SEU_PROJETO",
-  storageBucket: "SEU_PROJETO.appspot.com",
-  messagingSenderId: "SEU_ID",
-  appId: "SEU_APP_ID"
-};
+    apiKey: "AIzaSyDeXJ_uSeaLgPKRUA1nCV7UFwEzpmiOmHc",
+    authDomain: "meu-controle-financeiro-a0572.firebaseapp.com",
+    projectId: "meu-controle-financeiro-a0572",
+    storageBucket: "meu-controle-financeiro-a0572.firebasestorage.app",
+    messagingSenderId: "202199536593",
+    appId: "1:202199536593:web:be012b0bd8c44b8c86c6f0"
+  };
 
 firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// ================= VARIÁVEIS =================
 let userId = null;
 let transactions = [];
 let debt = 0;
+let cycleStartDay = 1;
 
-// 🔐 LOGIN (FUNCIONA NO VERCEL)
+// ================= LOGIN =================
 function login() {
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithRedirect(provider);
@@ -124,7 +131,7 @@ function logout() {
   auth.signOut();
 }
 
-// 👤 USER STATE
+// ================= USER =================
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     userId = user.uid;
@@ -138,37 +145,97 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
-// ☁️ LOAD DATA
+// ================= LOAD =================
 async function loadData() {
   const doc = await db.collection('users').doc(userId).get();
+
   if (doc.exists) {
     const data = doc.data();
     transactions = data.transactions || [];
     debt = data.debt || 0;
+    cycleStartDay = data.cycleStartDay || 1;
   }
+
   updateUI();
 }
 
-// 💾 SAVE DATA
+// ================= SAVE =================
 async function saveData() {
   if (!userId) return;
 
   await db.collection('users').doc(userId).set({
     transactions,
-    debt
+    debt,
+    cycleStartDay
   });
 }
 
-// 📊 UI
+// ================= CICLO =================
+function getCycle(date = new Date()) {
+  const d = new Date(date);
+  if (d.getDate() < cycleStartDay) {
+    d.setMonth(d.getMonth() - 1);
+  }
+  return `${d.getFullYear()}-${d.getMonth() + 1}`;
+}
+
+function setCycle() {
+  const value = parseInt(document.getElementById('cycle').value);
+  cycleStartDay = isNaN(value) ? 1 : value;
+
+  saveData();
+  updateUI();
+}
+
+// ================= ADD =================
+function addTransaction() {
+  const desc = document.getElementById('desc').value.trim();
+  const value = parseFloat(document.getElementById('value').value);
+  const category = document.getElementById('category').value;
+
+  if (!desc || isNaN(value)) return alert("Preencha corretamente");
+
+  transactions.push({
+    desc,
+    value,
+    category,
+    date: new Date().toISOString()
+  });
+
+  updateUI();
+  saveData();
+}
+
+// ================= REMOVE =================
+function removeTransaction(i) {
+  transactions.splice(i, 1);
+  updateUI();
+  saveData();
+}
+
+// ================= DEBT =================
+function setDebt() {
+  debt = parseFloat(document.getElementById('debt').value) || 0;
+  updateUI();
+  saveData();
+}
+
+// ================= UI =================
 function updateUI() {
   const list = document.getElementById('list');
   list.innerHTML = '';
+
+  const currentCycle = getCycle();
 
   let total = 0;
   let income = 0;
   let expenses = 0;
 
-  transactions.forEach((t, i) => {
+  const filtered = transactions.filter(t => {
+    return getCycle(t.date) === currentCycle;
+  });
+
+  filtered.forEach((t, i) => {
     total += t.value;
 
     if (t.value > 0) income += t.value;
@@ -190,37 +257,6 @@ function updateUI() {
   document.getElementById('expenses').innerText = Math.abs(expenses).toFixed(2);
   document.getElementById('balance').innerText = total.toFixed(2);
   document.getElementById('remaining').innerText = Math.max(debt - total, 0).toFixed(2);
-}
-
-// ➕ ADD
-function addTransaction() {
-  const desc = document.getElementById('desc').value.trim();
-  const value = parseFloat(document.getElementById('value').value);
-  const category = document.getElementById('category').value;
-
-  if (!desc || isNaN(value)) return alert("Preencha corretamente");
-
-  transactions.push({ desc, value, category });
-
-  document.getElementById('desc').value = '';
-  document.getElementById('value').value = '';
-
-  updateUI();
-  saveData();
-}
-
-// ❌ REMOVE
-function removeTransaction(i) {
-  transactions.splice(i, 1);
-  updateUI();
-  saveData();
-}
-
-// 💸 DEBT
-function setDebt() {
-  debt = parseFloat(document.getElementById('debt').value) || 0;
-  updateUI();
-  saveData();
 }
 
 </script>

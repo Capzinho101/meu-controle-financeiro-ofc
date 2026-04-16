@@ -1,263 +1,319 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Controle de Gastos</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+<meta charset="UTF-8">
+<title>Finance Pro Final</title>
+<script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 
-<body class="bg-gray-900 text-white p-6">
+<body class="bg-gray-900 text-white">
 
-<div class="max-w-2xl mx-auto bg-gray-800 p-6 rounded-2xl shadow-lg">
+<!-- BOTÃO MENU -->
+<button onclick="toggleSidebar()"
+class="fixed top-3 left-3 bg-gray-800 px-3 py-2 rounded z-50">
+☰
+</button>
 
-  <h1 class="text-2xl font-bold mb-4">💰 Controle de Gastos</h1>
+<!-- SIDEBAR -->
+<div id="sidebar"
+class="fixed top-0 left-0 w-80 h-full bg-gray-950 p-4 transform -translate-x-full transition z-40 overflow-y-auto">
 
-  <!-- LOGIN -->
-  <div class="mb-4 text-center">
-    <button onclick="login()" class="bg-green-600 px-4 py-2 rounded">Login Google</button>
-    <button onclick="logout()" class="bg-gray-600 px-4 py-2 rounded ml-2">Sair</button>
-    <p id="user" class="text-sm mt-2"></p>
-  </div>
+<h2 class="font-bold mb-4">⚙ Painel</h2>
 
-  <div id="app" style="display:none;">
+<!-- LOGIN -->
+<div class="bg-gray-900 p-3 rounded mb-4">
+  <p class="text-sm mb-2">👤 Conta</p>
 
-    <!-- CICLO -->
-    <div class="mb-4">
-      <input id="cycle" type="number" placeholder="Dia de início do mês (ex: 1, 5, 10)"
-        class="bg-gray-700 p-2 w-full rounded text-white">
+  <button onclick="login()"
+  class="bg-green-600 w-full p-2 rounded mb-2">
+    Login Google
+  </button>
 
-      <button onclick="setCycle()"
-        class="bg-purple-600 px-4 py-2 rounded w-full mt-2">
-        Definir ciclo
-      </button>
-    </div>
+  <button onclick="logout()"
+  class="bg-red-600 w-full p-2 rounded">
+    Sair
+  </button>
 
-    <!-- TRANSAÇÃO -->
-    <div class="mb-4">
-      <input id="desc" type="text" placeholder="Descrição"
-        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+  <p id="userEmail" class="text-xs mt-2"></p>
+</div>
 
-      <select id="category"
-        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
-        <option>Alimentação</option>
-        <option>Transporte</option>
-        <option>Contas</option>
-        <option>Lazer</option>
-        <option>Outros</option>
-      </select>
+<!-- SALDO INICIAL -->
+<div class="mb-4">
+<p class="text-sm">💰 Saldo inicial</p>
+<input id="initialBalance"
+type="number"
+class="bg-gray-800 p-2 w-full rounded">
+<button onclick="setInitial()"
+class="bg-green-600 w-full p-2 rounded mt-2">
+Salvar
+</button>
+</div>
 
-      <input id="value" type="number" placeholder="Valor"
-        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+<!-- MÊS -->
+<div class="mb-4">
+<p class="text-sm">📅 Mês</p>
+<select id="monthSelect"
+class="bg-gray-800 p-2 w-full rounded"
+onchange="changeMonth()"></select>
+</div>
 
-      <button onclick="addTransaction()"
-        class="bg-blue-600 px-4 py-2 rounded w-full">
-        Adicionar
-      </button>
-    </div>
+<!-- DÍVIDA -->
+<div class="bg-gray-900 p-3 rounded mb-4">
+<p class="text-sm">💸 Dívida restante</p>
+<p class="text-red-400 text-lg">R$ <span id="debtLeft">0</span></p>
+</div>
 
-    <!-- DÍVIDA -->
-    <div class="mb-4">
-      <input id="debt" type="number" placeholder="Total de dívidas"
-        class="bg-gray-700 p-2 w-full mb-2 rounded text-white">
+<!-- HISTÓRICO -->
+<div>
+<h3 class="font-bold mb-2">📊 Histórico geral</h3>
+<div id="historySidebar" class="space-y-2 text-sm"></div>
+</div>
 
-      <button onclick="setDebt()"
-        class="bg-red-600 px-4 py-2 rounded w-full">
-        Definir Dívida
-      </button>
-    </div>
+</div>
 
-    <!-- RESUMO -->
-    <div class="grid grid-cols-2 gap-4 text-sm mb-4">
-      <div class="bg-green-900 p-3 rounded">
-        <p>Entradas</p>
-        <strong>R$ <span id="income">0</span></strong>
-      </div>
+<!-- MAIN -->
+<div class="ml-10 p-4">
 
-      <div class="bg-red-900 p-3 rounded">
-        <p>Gastos</p>
-        <strong>R$ <span id="expenses">0</span></strong>
-      </div>
+<h1 class="text-xl font-bold mb-4">💰 Controle Financeiro</h1>
 
-      <div class="bg-blue-900 p-3 rounded">
-        <p>Saldo</p>
-        <strong>R$ <span id="balance">0</span></strong>
-      </div>
+<div id="balanceBox" class="p-3 rounded bg-gray-700 mb-4">
+Saldo: R$ <span id="balance">0</span>
+</div>
 
-      <div class="bg-yellow-700 text-black p-3 rounded">
-        <p>Dívida restante</p>
-        <strong>R$ <span id="remaining">0</span></strong>
-      </div>
-    </div>
+<div class="grid grid-cols-3 gap-2 mb-4">
+<div class="bg-green-900 p-3 rounded">Entradas <p id="income">0</p></div>
+<div class="bg-red-900 p-3 rounded">Gastos <p id="expenses">0</p></div>
+<div class="bg-blue-900 p-3 rounded">Total <p id="total">0</p></div>
+</div>
 
-    <ul id="list" class="space-y-2"></ul>
+<!-- ADD -->
+<div class="bg-gray-800 p-3 rounded mb-4">
 
-  </div>
+<input id="desc" class="bg-gray-700 p-2 w-full rounded mb-2" placeholder="Descrição">
+
+<select id="category" class="bg-gray-700 p-2 w-full rounded mb-2">
+<option>Água</option>
+<option>Transporte</option>
+<option>Contas</option>
+<option>Alimentação</option>
+<option>Outros</option>
+</select>
+
+<input id="value" type="number"
+class="bg-gray-700 p-2 w-full rounded mb-2"
+placeholder="Valor (negativo = gasto)">
+
+<button onclick="add()"
+class="bg-blue-600 w-full p-2 rounded">
+Adicionar
+</button>
+
+</div>
+
+<h2 class="font-bold mb-2">📌 Lista</h2>
+<div id="list" class="space-y-2"></div>
+
 </div>
 
 <script>
-// ================= FIREBASE =================
+
+// ---------------- FIREBASE ----------------
 const firebaseConfig = {
-    apiKey: "AIzaSyDeXJ_uSeaLgPKRUA1nCV7UFwEzpmiOmHc",
-    authDomain: "meu-controle-financeiro-a0572.firebaseapp.com",
-    projectId: "meu-controle-financeiro-a0572",
-    storageBucket: "meu-controle-financeiro-a0572.firebasestorage.app",
-    messagingSenderId: "202199536593",
-    appId: "1:202199536593:web:be012b0bd8c44b8c86c6f0"
-  };
+  apiKey: "AIzaSyDeXJ_uSeaLgPKRUA1nCV7UFwEzpmiOmHc",
+  authDomain: "meu-controle-financeiro-a0572.firebaseapp.com",
+  projectId: "meu-controle-financeiro-a0572",
+  storageBucket: "meu-controle-financeiro-a0572.firebasestorage.app",
+  messagingSenderId: "202199536593",
+  appId: "1:202199536593:web:be012b0bd8c44b8c86c6f0"
+};
 
 firebase.initializeApp(firebaseConfig);
-
 const auth = firebase.auth();
-const db = firebase.firestore();
 
-// ================= VARIÁVEIS =================
-let userId = null;
-let transactions = [];
-let debt = 0;
-let cycleStartDay = 1;
+// ---------------- DADOS ----------------
+let transactions = {};
+let currentMonth = getMonthKey();
+let initialBalance = 0;
 
-// ================= LOGIN =================
-function login() {
+// ---------------- LOGIN ----------------
+function login(){
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithRedirect(provider);
-}
 
-function logout() {
-  auth.signOut();
-}
-
-// ================= USER =================
-auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    userId = user.uid;
-    document.getElementById('user').innerText = user.email;
-    document.getElementById('app').style.display = 'block';
-    await loadData();
-  } else {
-    userId = null;
-    document.getElementById('user').innerText = '';
-    document.getElementById('app').style.display = 'none';
-  }
-});
-
-// ================= LOAD =================
-async function loadData() {
-  const doc = await db.collection('users').doc(userId).get();
-
-  if (doc.exists) {
-    const data = doc.data();
-    transactions = data.transactions || [];
-    debt = data.debt || 0;
-    cycleStartDay = data.cycleStartDay || 1;
-  }
-
-  updateUI();
-}
-
-// ================= SAVE =================
-async function saveData() {
-  if (!userId) return;
-
-  await db.collection('users').doc(userId).set({
-    transactions,
-    debt,
-    cycleStartDay
+  auth.signInWithPopup(provider)
+  .then(res => {
+    document.getElementById('userEmail').innerText =
+      res.user.email;
   });
 }
 
-// ================= CICLO =================
-function getCycle(date = new Date()) {
-  const d = new Date(date);
-  if (d.getDate() < cycleStartDay) {
-    d.setMonth(d.getMonth() - 1);
+function logout(){
+  auth.signOut();
+  document.getElementById('userEmail').innerText = '';
+}
+
+// ---------------- MÊS ----------------
+function getMonthKey(){
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}`;
+}
+
+// ---------------- SIDEBAR ----------------
+function toggleSidebar(){
+  document.getElementById('sidebar')
+  .classList.toggle('-translate-x-full');
+}
+
+// ---------------- INIT MESES ----------------
+function initMonths(){
+  const select = document.getElementById('monthSelect');
+
+  const year = new Date().getFullYear();
+
+  for(let i=1;i<=12;i++){
+    const opt = document.createElement('option');
+    opt.value = `${year}-${i}`;
+    opt.innerText = `${year}-${i}`;
+    select.appendChild(opt);
   }
-  return `${d.getFullYear()}-${d.getMonth() + 1}`;
+
+  select.value = currentMonth;
 }
 
-function setCycle() {
-  const value = parseInt(document.getElementById('cycle').value);
-  cycleStartDay = isNaN(value) ? 1 : value;
-
-  saveData();
-  updateUI();
+// ---------------- CHANGE MONTH ----------------
+function changeMonth(){
+  currentMonth = document.getElementById('monthSelect').value;
+  load();
+  render();
 }
 
-// ================= ADD =================
-function addTransaction() {
-  const desc = document.getElementById('desc').value.trim();
+// ---------------- ADD ----------------
+function add(){
+
+  const desc = document.getElementById('desc').value;
   const value = parseFloat(document.getElementById('value').value);
   const category = document.getElementById('category').value;
 
-  if (!desc || isNaN(value)) return alert("Preencha corretamente");
+  if(!desc || isNaN(value)) return;
 
-  transactions.push({
+  if(!transactions[currentMonth]) transactions[currentMonth] = [];
+
+  transactions[currentMonth].push({
+    id: Date.now(),
     desc,
     value,
     category,
-    date: new Date().toISOString()
+    paid: false
   });
 
-  updateUI();
-  saveData();
+  save();
+  render();
 }
 
-// ================= REMOVE =================
-function removeTransaction(i) {
-  transactions.splice(i, 1);
-  updateUI();
-  saveData();
+// ---------------- TOGGLE PAGO ----------------
+function togglePaid(id){
+
+  const t = transactions[currentMonth].find(x => x.id === id);
+  t.paid = !t.paid;
+
+  save();
+  render();
 }
 
-// ================= DEBT =================
-function setDebt() {
-  debt = parseFloat(document.getElementById('debt').value) || 0;
-  updateUI();
-  saveData();
+// ---------------- DELETE ----------------
+function del(id){
+  transactions[currentMonth] =
+    transactions[currentMonth].filter(t => t.id !== id);
+
+  save();
+  render();
 }
 
-// ================= UI =================
-function updateUI() {
+// ---------------- SAVE ----------------
+function save(){
+  localStorage.setItem("financeAppFinal", JSON.stringify({
+    transactions,
+    initialBalance
+  }));
+}
+
+// ---------------- LOAD ----------------
+function load(){
+  const data = JSON.parse(localStorage.getItem("financeAppFinal"));
+  if(data){
+    transactions = data.transactions || {};
+    initialBalance = data.initialBalance || 0;
+  }
+}
+
+// ---------------- SALDO ----------------
+function setInitial(){
+  initialBalance =
+    parseFloat(document.getElementById('initialBalance').value) || 0;
+
+  save();
+  render();
+}
+
+// ---------------- RENDER ----------------
+function render(){
+
   const list = document.getElementById('list');
+  const history = document.getElementById('historySidebar');
+
   list.innerHTML = '';
+  history.innerHTML = '';
 
-  const currentCycle = getCycle();
-
-  let total = 0;
   let income = 0;
   let expenses = 0;
+  let debtLeft = 0;
 
-  const filtered = transactions.filter(t => {
-    return getCycle(t.date) === currentCycle;
-  });
+  const monthData = transactions[currentMonth] || [];
 
-  filtered.forEach((t, i) => {
-    total += t.value;
+  monthData.forEach(t => {
 
-    if (t.value > 0) income += t.value;
+    if(t.value > 0) income += t.value;
     else expenses += t.value;
 
-    const li = document.createElement('li');
-    li.className = 'bg-gray-700 p-2 rounded flex justify-between';
+    if(t.value < 0 && !t.paid){
+      debtLeft += Math.abs(t.value);
+    }
 
-    li.innerHTML = `
-      <span>${t.desc} (${t.category})</span>
-      <span>R$ ${t.value.toFixed(2)}</span>
-      <button onclick="removeTransaction(${i})" class="text-red-400">X</button>
+    let status = t.paid ? "PAGO" : "";
+
+    list.innerHTML += `
+      <div class="bg-gray-800 p-2 rounded flex justify-between">
+
+        <div>
+          ${t.desc} (${t.category}) - R$ ${t.value}
+          <span class="${t.paid ? 'text-green-400' : ''}">
+            ${status}
+          </span>
+        </div>
+
+        <div class="flex gap-2">
+          <button onclick="togglePaid(${t.id})">✔</button>
+          <button onclick="del(${t.id})">❌</button>
+        </div>
+
+      </div>
     `;
-
-    list.appendChild(li);
   });
 
-  document.getElementById('income').innerText = income.toFixed(2);
-  document.getElementById('expenses').innerText = Math.abs(expenses).toFixed(2);
-  document.getElementById('balance').innerText = total.toFixed(2);
-  document.getElementById('remaining').innerText = Math.max(debt - total, 0).toFixed(2);
+  document.getElementById('income').innerText = income;
+  document.getElementById('expenses').innerText = Math.abs(expenses);
+  document.getElementById('total').innerText = income + expenses;
+  document.getElementById('balance').innerText = initialBalance + income + expenses;
+  document.getElementById('debtLeft').innerText = debtLeft;
 }
+
+// ---------------- INIT ----------------
+load();
+initMonths();
+render();
 
 </script>
 
